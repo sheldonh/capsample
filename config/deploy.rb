@@ -1,6 +1,7 @@
 set :application, "capsample"
 set :rails_env, "development"
 set :repository,  "git://github.com/sheldonh/capsample.git"
+set :branch, "master"
 set :deploy_via, :remote_cache # Does a git pull instead of a full repo fetch
 
 # If you aren't deploying to /u/apps/#{application} on the target
