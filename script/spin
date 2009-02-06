@@ -1,0 +1,4 @@
+#!/bin/true
+
+Capsample currently assumes that a Phusion Passenger virtual host is already
+configured with a DocumentRoot like /var/www/apps/capsample/current/public.
