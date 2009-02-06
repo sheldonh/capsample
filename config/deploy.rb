@@ -58,5 +58,11 @@ namespace :deploy do
     task :restart, :roles => :app, :except => { :no_release => true } do
       run "touch #{current_path}/tmp/restart.txt"
     end
+
+    [ :start, :stop ].each do |override_task|
+      desc "Does nothing with Phusion Passenger."
+      task override_task, :roles => :app do
+      end
+    end
   end
 end
