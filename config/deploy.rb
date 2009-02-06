@@ -1,8 +1,8 @@
 set :application, "capsample"
-set :rails_env, "development"
+set :rails_env, "production"
 set :repository,  "git://github.com/sheldonh/capsample.git"
-set :branch, "master"
 set :deploy_via, :remote_cache # Does a git pull instead of a full repo fetch
+set :branch, "production" == rails_env.to_s ? "master" : "edge"
 
 # If you aren't deploying to /u/apps/#{application} on the target
 # servers (which is the default), you can specify the actual location
@@ -54,7 +54,7 @@ namespace :deploy do
     end
   end
 
-  if [ :passenger ].include?(app_server)
+  if "passenger" == app_server.to_s
     desc "Requests a Phusion Passenger restart."
     task :restart, :roles => :app, :except => { :no_release => true } do
       run "touch #{current_path}/tmp/restart.txt"
