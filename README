@@ -76,3 +76,22 @@ override the deploy:restart task to request a passenger restart properly.
 But I left the ruby symlink in place, for the sake of "cap invoke".
 
 Also added no-op start and stop targets for passenger.
+
+Taught deploy.rb to use the master branch for production and the edge
+branch for everything else.  Then did
+
+	git checkout -b edge
+	script/generate scaffold note name:string body:text
+	rake db:schema:dump
+	git add .
+	git commit
+	git remote add origin/edge git@github.com:sheldonh/capsample.git
+	git push origin/edge edge
+
+And voila!  Now I can test out edge changes with
+
+	cap -s rails_env=development deploy
+
+Of course, I still have to set RailsEnv in the apache virtual host, which is
+inelegant.  That could probably be solved by having a staging server role.
+
