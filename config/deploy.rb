@@ -1,17 +1,7 @@
 set :application, "capsample"
-set :rails_env, "production"
+set :scm, :git
 set :repository,  "git://github.com/sheldonh/capsample.git"
 set :deploy_via, :remote_cache # Does a git pull instead of a full repo fetch
-set :branch, "production" == rails_env.to_s ? "master" : "edge"
-
-# If you aren't deploying to /u/apps/#{application} on the target
-# servers (which is the default), you can specify the actual location
-# via the :deploy_to variable:
-set :deploy_to, "/var/www/apps/#{application}"
-
-# If you aren't using Subversion to manage your source code, specify
-# your SCM below:
-set :scm, :git
 
 role :app, "lenny.vmware"
 role :web, "lenny.vmware"
@@ -21,6 +11,9 @@ set :app_server, :passenger
 
 #set :user, "sheldonh"
 set :use_sudo, false
+
+set :stage, "beta" unless exists?(:stage)
+load File.join(File.dirname(__FILE__), "deploy", stage)
 
 set :shared_db_dir, File.join(deploy_to, shared_dir, "db")
 
