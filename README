@@ -77,8 +77,8 @@ But I left the ruby symlink in place, for the sake of "cap invoke".
 
 Also added no-op start and stop targets for passenger.
 
-Taught deploy.rb to use the master branch for production and the edge
-branch for everything else.  Then did
+Added multistage support to deploy.rb, to associate git branches with
+multiple deployments (e.g. production and beta).  Then did
 
 	git checkout -b edge
 	script/generate scaffold note name:string body:text
@@ -87,11 +87,24 @@ branch for everything else.  Then did
 	git commit
 	git remote add origin/edge git@github.com:sheldonh/capsample.git
 	git push origin/edge edge
+	cap -S stage=beta deploy:setup
+
+Modified apache config:
+
+<VirtualHost *:80>
+  ServerName lenny.vmware
+  DocumentRoot /var/www/apps/capsample/current/public
+  RailsEnv production
+</VirtualHost>
+<VirtualHost *:80>
+  ServerName beta.lenny.vmware
+  DocumentRoot /var/www/apps/capsample-beta/current/public
+  RailsEnv development
+</VirtualHost>
+
+Created /var/www/apps/capsample-beta/current/public on lenny and made
+sheldonh its owner.
 
 And voila!  Now I can test out edge changes with
 
-	cap -s rails_env=development deploy
-
-Of course, I still have to set RailsEnv in the apache virtual host, which is
-inelegant.  That could probably be solved by having a staging server role.
-
+	cap -S stage=beta deploy
