@@ -12,37 +12,26 @@ set :app_server, :passenger
 #set :user, "sheldonh"
 set :use_sudo, false
 
-set :stage, "beta" unless exists?(:stage)
-load File.join(File.dirname(__FILE__), "deploy", stage)
+set :deployment, "beta" unless exists?(:deployment)
+load File.join(File.dirname(__FILE__), "deployments", deployment)
 
 set :shared_db_dir, File.join(deploy_to, shared_dir, "db")
 
 namespace :deploy do
-  desc "Create shared db directory for sqlite3."
-  task :after_setup, :roles => :db do
-    run "mkdir -p #{shared_db_dir}"
-  end
-
-  desc "Handle directories not tracked by git, and shared sqlite3 databases."
-  task :before_finalize_update, :roles => [ :web, :db ] do
-    [ File.join("public", "stylesheets") ].each do |missing_dir|
-      full_path = File.join(current_release, missing_dir)
-      parallel do |session|
-        session.when "in?(:web)", "mkdir -p #{current_release}/#{missing_dir}"
-      end
+  if "sqlite3" == database_adapter.to_s
+    desc "Create shared db directory for sqlite3."
+    task :after_setup, :roles => :db do
+      run "mkdir -p #{shared_db_dir}"
     end
 
-    [ File.join(current_release, "db") ].each do |missing_dir|
-      parallel do |session|
-        session.when "in?(:db)", "mkdir -p #{missing_dir}"
-      end
-    end
-
-    [ "development", "test", "production" ].each do |db|
-      link_name = File.join(current_release, "db", "#{db}.sqlite3")
-      link_to = File.join(shared_db_dir, "#{db}.sqlite3")
-      parallel do |session|
-        session.when "in?(:db)", "ln -s #{link_to} #{link_name}"
+    desc "Handle shared sqlite3 databases."
+    task :before_finalize_update, :roles => [ :web, :db ] do
+      [ "development", "test", "production" ].each do |db|
+        link_name = File.join(current_release, "db", "#{db}.sqlite3")
+        link_to = File.join(shared_db_dir, "#{db}.sqlite3")
+        parallel do |session|
+          session.when "in?(:db)", "ln -s #{link_to} #{link_name}"
+        end
       end
     end
   end

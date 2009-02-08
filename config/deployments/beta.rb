@@ -1,4 +1,5 @@
-set :stage, "beta"
+set :deployment, "beta"
 set :branch, "edge"
 set :rails_env, "development"
 set :deploy_to, "/var/www/apps/#{application}-beta"
+set :database_adapter, "sqlite3"
