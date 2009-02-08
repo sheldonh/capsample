@@ -1,6 +1,9 @@
 My voyage of discovery with Phusion Passenger, Enterprise Ruby, Git and
 Capistrano.
 
+These notes started as a literal record of the steps I was taking, but have
+evolved into the steps I'd have to take to get the current capsample project.
+
 Installed Phusion Passenger and Enterprise Ruby on Debian Lenny vmware instance
 called lenny.vmware (also called lenny) and activated this virtual host in
 apache:
@@ -8,15 +11,40 @@ apache:
 <VirtualHost *:80>
   ServerName lenny.vmware
   DocumentRoot /var/www/apps/capsample/current/public
+  RailsEnv production
+</VirtualHost>
+<VirtualHost *:80>
+  ServerName beta.lenny.vmware
+  DocumentRoot /var/www/apps/capsample-beta/current/public
   RailsEnv development
 </VirtualHost>
 
-Created /var/www/apps/capsample/current/public on lenny and made sheldonh
-its owner.
+Created capsample and capsample-beta directories in /var/www/apps on lenny
+and made sheldonh its owner.
 
 Copied my SSH public key over to lenny.
 
 Created the rails app.
+
+cat >.gitignore <<EOF
+db/*.sqlite3
+doc/api
+doc/app
+.DS_Store
+log/*.log
+tmp/**/*
+EOF
+rake db:schema:dump
+script/generate scaffold sample
+cp public/stylesheets/scaffold.css .
+script/destroy scaffold sample
+mv scaffold.css public/stylesheets
+
+The schema dump creates a placeholder schema.rb in the db directory, and the
+db directory itself, making sqlite3 easier to deal.  Together with slapping
+in a copy of the scaffold stylesheet, we work around having to create
+directories explicitly in after_setup and before_finalize_update (empty dirs
+aren't tracked by git).
 
 Created the repository at github.
 
@@ -46,15 +74,16 @@ The find command failed because stylesheets releases/XXX/public/stylesheets
 was missing.  This directory (and possibly others) is empty in a virgin
 rails app, and so is not tracked by git.
 
-Plus, I think I should have used cap deploy:update_code (which is update
-minus symlink), so prevent passenger from picking up the deploy?
-
 Anyway, added before_finalize_update task to config/deploy.rb to create
 missing public/stylesheets directory.
 
 Couldn't remember whether I'd reloaded apache after updating the DocumentRoot
-for the passenger vhost, so I reloaded apache, and then browser to the site,
+for the passenger vhost, so I reloaded apache, and then browsed to the site,
 getting the "Welcome aboard" page.
+
+Note that the rails "Welcome aboard" page's "About your application's
+environment" link only works with RAILS_ENV=development, which I hadn't yet
+gotten working at this point.
 
 Committed capistrano localizations to master and pushed to origin.
 
@@ -81,30 +110,15 @@ Added multistage support to deploy.rb, to associate git branches with
 multiple deployments (e.g. production and beta).  Then did
 
 	git checkout -b edge
-	script/generate scaffold note name:string body:text
-	rake db:schema:dump
-	git add .
-	git commit
 	git remote add origin/edge git@github.com:sheldonh/capsample.git
 	git push origin/edge edge
-	cap -S stage=beta deploy:setup
+	cap -S deployment=beta deploy:setup
 
-Modified apache config:
+And voila!  Now I can deploy edge to the beta site with
 
-<VirtualHost *:80>
-  ServerName lenny.vmware
-  DocumentRoot /var/www/apps/capsample/current/public
-  RailsEnv production
-</VirtualHost>
-<VirtualHost *:80>
-  ServerName beta.lenny.vmware
-  DocumentRoot /var/www/apps/capsample-beta/current/public
-  RailsEnv development
-</VirtualHost>
+	cap -S deployment=beta deploy
 
-Created /var/www/apps/capsample-beta/current/public on lenny and made
-sheldonh its owner.
+and master to the production site with
 
-And voila!  Now I can test out edge changes with
+	cap -S deployment=production deploy
 
-	cap -S stage=beta deploy
