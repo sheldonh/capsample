@@ -1,12 +1,28 @@
+= capsample
+
 My voyage of discovery with Phusion Passenger, Enterprise Ruby, Git and
 Capistrano.
 
 These notes started as a literal record of the steps I was taking, but have
 evolved into the steps I'd have to take to get the current capsample project.
 
-Installed Phusion Passenger and Enterprise Ruby on Debian Lenny vmware instance
-called lenny.vmware (also called lenny) and activated this virtual host in
-apache:
+My deployment server is a Debian Lenny vmware instance called lenny.vmware
+(also known as beta.lenny.vmware).
+
+== On lenny.vmware
+
+aptitude install apache2 git-core
+
+Installed Phusion Passenger and Enterprise Ruby into /opt/.
+
+ln -s /opt/ruby-enterprise-*/bin/rake /usr/local/bin/.
+ln -s /opt/ruby-enterprise-*/bin/ruby /usr/local/bin/.
+
+Added /etc/hosts entry:
+
+	127.0.1.1	lenny.vmware beta.lenny.vmware
+
+Activated these virtual hosts in apache2:
 
 <VirtualHost *:80>
   ServerName lenny.vmware
@@ -19,26 +35,40 @@ apache:
   RailsEnv development
 </VirtualHost>
 
-Created capsample and capsample-beta directories in /var/www/apps on lenny
-and made sheldonh its owner.
+Created capsample and capsample-beta directories in /var/www/apps/.
 
-Copied my SSH public key over to lenny.
+Created local user sheldonh.
 
-Created the rails app.
+Made sheldonh the owner of the capsample and capsample-beta directories.
+
+== On my workstation
+
+Created a repository called capsample at github.com.
+
+ssh-copy-id -i ~/.ssh/id_dsa.pub sheldonh@lenny.vmware
+
+Add /etc/hosts entry for lenny:
+
+	172.16.103.97	lenny.vmware beta.lenny.vmware
+
+rails capsample
+cd capsample
 
 cat >.gitignore <<EOF
 db/*.sqlite3
 doc/api
 doc/app
-.DS_Store
 log/*.log
+public/cache/**/*
 tmp/**/*
 EOF
+
 rake db:schema:dump
 script/generate scaffold sample
 cp public/stylesheets/scaffold.css .
 script/destroy scaffold sample
-mv scaffold.css public/stylesheets
+mkdir -p public/stylesheets
+mv scaffold.css public/stylesheets/
 
 The schema dump creates a placeholder schema.rb in the db directory, and the
 db directory itself, making sqlite3 easier to deal.  Together with slapping
@@ -46,79 +76,67 @@ in a copy of the scaffold stylesheet, we work around having to create
 directories explicitly in after_setup and before_finalize_update (empty dirs
 aren't tracked by git).
 
-Created the repository at github.
+capify .
+edit config/deploy.rb
+mkdir config/deployments
+edit config/deployments/beta.rb
+edit config/deployments/production.rb
 
-Followed the getting started instructions for the repository at github.
-This gets to the point where you have master and origin, and origin refers
-to the repository at github.  So now github has the rails app.
+cat > script/spin <<EOF
+#!/bin/true
 
-Capify.  Committed to master without modification (but not pushed to origin),
-in case I want to revert local mods.
+Capsample currently assumes that a Phusion Passenger virtual host is already
+configured with a DocumentRoot like /var/www/apps/capsample/current/public.
+EOF
+chmod +x script/spin
 
-Localized config/deploy.rb.
+git init
+git add .
+git commit -m "Initial import."
+git remote add origin git@github.com:sheldonh/capsample.git
+git push origin master
 
 cap deploy:setup
 
-Looked okay except for "zlib(finalizer): the stream was freed prematurely."
-at the end, which I ignored.
+	Looked okay except for "zlib(finalizer): the stream was freed
+	prematurely." at the end, which I ignored.
 
 cap deploy:check
 
-Complained that git was missing so I installed git-core on lenny.
-
-Created a do-nothing script/spin.
-
 cap deploy:update
 
-The find command failed because stylesheets releases/XXX/public/stylesheets
-was missing.  This directory (and possibly others) is empty in a virgin
-rails app, and so is not tracked by git.
+cap deploy:migrate
 
-Anyway, added before_finalize_update task to config/deploy.rb to create
-missing public/stylesheets directory.
+cap deploy
 
-Couldn't remember whether I'd reloaded apache after updating the DocumentRoot
-for the passenger vhost, so I reloaded apache, and then browsed to the site,
-getting the "Welcome aboard" page.
+Browsed to http://lenny.vmware/ and got the "Welcome aboard" page.
 
 Note that the rails "Welcome aboard" page's "About your application's
 environment" link only works with RAILS_ENV=development, which I hadn't yet
 gotten working at this point.
 
-Committed capistrano localizations to master and pushed to origin.
+git checkout -b edge
+git remote add origin/edge git@github.com:sheldonh/capsample.git
+git push origin/edge edge
+cap -S deployment=beta deploy:setup
 
-Modified config/deploy.rb to share sqlite3 databases across releases.
+Browsed to http://beta.lenny.vmware/ and got the "Welcome aboard" page.
 
-cap deploy:migrate
+Because the beta sites runs in development mode, the "About your application's
+environment" link works here.
 
-Failed because rake wasn't in the PATH.
-Symlinked /opt/ruby-enterprise-.../bin/rake into /usr/local/bin on lenny,
-then the migrate worked.
-
-cap deploy
-
-Failed to run script/process/reaper, because ruby wasn't in the PATH.
-Symlinked /opt/ruby-enterprise-.../bin/ruby into /usr/local/bin on lenny,
-
-Came up with a better fix for reaper.  If app_server is set to :passenger,
-override the deploy:restart task to request a passenger restart properly.
-But I left the ruby symlink in place, for the sake of "cap invoke".
-
-Also added no-op start and stop targets for passenger.
-
-Added multistage support to deploy.rb, to associate git branches with
-multiple deployments (e.g. production and beta).  Then did
-
-	git checkout -b edge
-	git remote add origin/edge git@github.com:sheldonh/capsample.git
-	git push origin/edge edge
-	cap -S deployment=beta deploy:setup
-
-And voila!  Now I can deploy edge to the beta site with
+Now I can deploy edge to the beta site with
 
 	cap -S deployment=beta deploy
 
 and master to the production site with
 
 	cap -S deployment=production deploy
+
+== To do
+
+Handle database.yml, which should be created in a persistent location on
+the server and then copied into the current release at deploy:update time.
+
+Test with mysql and postgresql.
 
